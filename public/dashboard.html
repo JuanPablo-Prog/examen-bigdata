@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Examen Big Data - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f4; }
+        h1 { text-align: center; color: #333; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .card { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+            width: 45%; 
+            min-width: 300px;
+        }
+        canvas { width: 100% !important; height: 300px !important; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard de Movilidad Urbana (MongoDB + Vercel)</h1>
+    
+    <div class="container">
+        <div class="card">
+            <h3>1. Distribución de Usuarios</h3>
+            <canvas id="chartUsers"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>2. Viajes por Hora del Día</h3>
+            <canvas id="chartHours"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>3. Top 10 Estaciones Populares</h3>
+            <canvas id="chartStations"></canvas>
+        </div>
+
+        <div class="card">
+            <h3>4. Viajes por Fecha (Muestra)</h3>
+            <canvas id="chartDays"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Función para dibujar gráficas fácilmente
+        function crearGrafica(id, tipo, labels, datos, titulo, color) {
+            new Chart(document.getElementById(id), {
+                type: tipo,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: titulo,
+                        data: datos,
+                        backgroundColor: color,
+                        borderColor: color,
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // Cargar datos de la API
+        async function cargarDatos() {
+            try {
+                // 1. Usuarios
+                const res1 = await fetch('/api/users');
+                const data1 = await res1.json();
+                crearGrafica('chartUsers', 'pie', 
+                    data1.map(d => d._id), 
+                    data1.map(d => d.total), 
+                    'Usuarios', ['#FF6384', '#36A2EB']);
+
+                // 2. Horas
+                const res2 = await fetch('/api/hours');
+                const data2 = await res2.json();
+                crearGrafica('chartHours', 'bar', 
+                    data2.map(d => d._id + ":00"), 
+                    data2.map(d => d.total), 
+                    'Viajes', '#4BC0C0');
+
+                // 3. Estaciones
+                const res3 = await fetch('/api/stations?limit=10');
+                const data3 = await res3.json();
+                crearGrafica('chartStations', 'bar', 
+                    data3.map(d => d.name), 
+                    data3.map(d => d.total), 
+                    'Salidas', '#FFCE56');
+
+                // 4. Días (Solo mostramos los primeros 15 para que se vea bien)
+                const res4 = await fetch('/api/days');
+                const data4 = await res4.json();
+                crearGrafica('chartDays', 'line', 
+                    data4.slice(0, 15).map(d => d._id), 
+                    data4.slice(0, 15).map(d => d.total), 
+                    'Viajes', '#9966FF');
+
+            } catch (error) {
+                console.error("Error cargando dashboard:", error);
+                alert("Error cargando datos. Revisa la consola.");
+            }
+        }
+
+        // Ejecutar al iniciar
+        cargarDatos();
+    </script>
+</body>
+</html>
