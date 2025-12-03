@@ -2,109 +2,177 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Examen Big Data - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard | Big Data</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f4; }
-        h1 { text-align: center; color: #333; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-        .card { 
-            background: white; 
-            padding: 15px; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-            width: 45%; 
-            min-width: 300px;
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
         }
-        canvas { width: 100% !important; height: 300px !important; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #334155;
+        }
+        h1 { margin: 0; font-weight: 600; letter-spacing: -1px; }
+        p.subtitle { color: var(--text-muted); margin-top: 5px; }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-5px); border-color: var(--accent); }
+        
+        h3 { margin-top: 0; color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .chart-container { position: relative; height: 300px; width: 100%; }
+        
+        /* Footer */
+        footer { text-align: center; margin-top: 50px; color: var(--text-muted); font-size: 0.8rem; }
     </style>
 </head>
 <body>
-    <h1>Dashboard de Movilidad Urbana (MongoDB + Vercel)</h1>
-    
-    <div class="container">
+
+    <header>
+        <h1>🚴‍♂️ Urban Mobility Intelligence</h1>
+        <p class="subtitle">Análisis de Big Data en Tiempo Real - MongoDB Atlas & Vercel</p>
+    </header>
+
+    <div class="grid-container">
         <div class="card">
-            <h3>1. Distribución de Usuarios</h3>
-            <canvas id="chartUsers"></canvas>
+            <h3>Distribución de Usuarios</h3>
+            <div class="chart-container">
+                <canvas id="chartUsers"></canvas>
+            </div>
         </div>
 
         <div class="card">
-            <h3>2. Viajes por Hora del Día</h3>
-            <canvas id="chartHours"></canvas>
+            <h3>Actividad por Hora</h3>
+            <div class="chart-container">
+                <canvas id="chartHours"></canvas>
+            </div>
         </div>
 
         <div class="card">
-            <h3>3. Top 10 Estaciones Populares</h3>
-            <canvas id="chartStations"></canvas>
+            <h3>Top 10 Estaciones</h3>
+            <div class="chart-container">
+                <canvas id="chartStations"></canvas>
+            </div>
         </div>
 
         <div class="card">
-            <h3>4. Viajes por Fecha (Muestra)</h3>
-            <canvas id="chartDays"></canvas>
+            <h3>Tendencia Diaria</h3>
+            <div class="chart-container">
+                <canvas id="chartDays"></canvas>
+            </div>
         </div>
     </div>
 
+    <footer>
+        Desarrollado por Juan Pablo para la materia Big Data - 2025
+    </footer>
+
     <script>
-        // Función para dibujar gráficas fácilmente
-        function crearGrafica(id, tipo, labels, datos, titulo, color) {
+        // Configuración Global de gráficas para que se vean "Dark Mode"
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#334155';
+        
+        function crearGrafica(id, tipo, labels, datos, label, colores) {
             new Chart(document.getElementById(id), {
                 type: tipo,
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: titulo,
+                        label: label,
                         data: datos,
-                        backgroundColor: color,
-                        borderColor: color,
-                        borderWidth: 1
+                        backgroundColor: colores,
+                        borderColor: tipo === 'line' ? '#38bdf8' : null,
+                        borderWidth: 2,
+                        borderRadius: 5,
+                        tension: 0.4 // Hace las líneas curvas y suaves
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
             });
         }
 
-        // Cargar datos de la API
         async function cargarDatos() {
             try {
-                // 1. Usuarios
+                // 1. Usuarios (Donut chart se ve más moderno)
                 const res1 = await fetch('/api/users');
                 const data1 = await res1.json();
-                crearGrafica('chartUsers', 'pie', 
-                    data1.map(d => d._id), 
-                    data1.map(d => d.total), 
-                    'Usuarios', ['#FF6384', '#36A2EB']);
+                crearGrafica('chartUsers', 'doughnut', 
+                    data1.map(d => d._id), data1.map(d => d.total), 
+                    'Usuarios', ['#38bdf8', '#818cf8']); // Azules neón
 
                 // 2. Horas
                 const res2 = await fetch('/api/hours');
                 const data2 = await res2.json();
                 crearGrafica('chartHours', 'bar', 
-                    data2.map(d => d._id + ":00"), 
-                    data2.map(d => d.total), 
-                    'Viajes', '#4BC0C0');
+                    data2.map(d => d._id + ":00"), data2.map(d => d.total), 
+                    'Viajes', '#2dd4bf'); // Verde agua
 
-                // 3. Estaciones
+                // 3. Estaciones (Horizontal bar es mejor para leer nombres largos)
                 const res3 = await fetch('/api/stations?limit=10');
                 const data3 = await res3.json();
-                crearGrafica('chartStations', 'bar', 
-                    data3.map(d => d.name), 
-                    data3.map(d => d.total), 
-                    'Salidas', '#FFCE56');
+                new Chart(document.getElementById('chartStations'), {
+                    type: 'bar',
+                    data: {
+                        labels: data3.map(d => d.name),
+                        datasets: [{
+                            label: 'Salidas',
+                            data: data3.map(d => d.total),
+                            backgroundColor: '#fbbf24', // Amarillo
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Barras horizontales
+                        responsive: true,
+                        maintainAspectRatio: false
+                    }
+                });
 
-                // 4. Días (Solo mostramos los primeros 15 para que se vea bien)
+                // 4. Días
                 const res4 = await fetch('/api/days');
                 const data4 = await res4.json();
                 crearGrafica('chartDays', 'line', 
-                    data4.slice(0, 15).map(d => d._id), 
-                    data4.slice(0, 15).map(d => d.total), 
-                    'Viajes', '#9966FF');
+                    data4.slice(0, 20).map(d => d._id), data4.slice(0, 20).map(d => d.total), 
+                    'Tendencia', '#f472b6'); // Rosa
 
-            } catch (error) {
-                console.error("Error cargando dashboard:", error);
-                alert("Error cargando datos. Revisa la consola.");
-            }
+            } catch (error) { console.error(error); }
         }
-
-        // Ejecutar al iniciar
         cargarDatos();
     </script>
 </body>
