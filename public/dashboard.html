@@ -32,7 +32,7 @@
         
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); /* Un poco más anchos */
             gap: 25px;
             max-width: 1400px;
             margin: 0 auto;
@@ -44,15 +44,14 @@
             padding: 25px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
             border: 1px solid #334155;
-            transition: transform 0.2s;
         }
-        .card:hover { transform: translateY(-5px); border-color: var(--accent); }
         
+        /* Hacemos que la gráfica 5 ocupe todo el ancho si es posible */
+        .card.full-width { grid-column: 1 / -1; }
+
         h3 { margin-top: 0; color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
-        
         .chart-container { position: relative; height: 300px; width: 100%; }
         
-        /* Footer */
         footer { text-align: center; margin-top: 50px; color: var(--text-muted); font-size: 0.8rem; }
     </style>
 </head>
@@ -60,33 +59,40 @@
 
     <header>
         <h1>🚴‍♂️ Urban Mobility Intelligence</h1>
-        <p class="subtitle">Análisis de Big Data en Tiempo Real - MongoDB Atlas & Vercel</p>
+        <p class="subtitle">Examen Competencia 1 - Big Data | MongoDB Atlas & Vercel</p>
     </header>
 
     <div class="grid-container">
         <div class="card">
-            <h3>Distribución de Usuarios</h3>
+            <h3>1. Usuarios (Total y Promedio)</h3>
             <div class="chart-container">
                 <canvas id="chartUsers"></canvas>
             </div>
         </div>
 
         <div class="card">
-            <h3>Actividad por Hora</h3>
+            <h3>2. Viajes por Hora (Duración Promedio)</h3>
             <div class="chart-container">
                 <canvas id="chartHours"></canvas>
             </div>
         </div>
 
-        <div class="card">
-            <h3>Top 10 Estaciones</h3>
+        <div class="card full-width">
+            <h3>4. Top 10 Estaciones (Con ID y Promedio)</h3>
             <div class="chart-container">
                 <canvas id="chartStations"></canvas>
             </div>
         </div>
 
         <div class="card">
-            <h3>Tendencia Diaria</h3>
+            <h3>5. Momentos Pico (Día + Hora)</h3>
+            <div class="chart-container">
+                <canvas id="chartPeaks"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>3. Tendencia Diaria</h3>
             <div class="chart-container">
                 <canvas id="chartDays"></canvas>
             </div>
@@ -94,58 +100,86 @@
     </div>
 
     <footer>
-        Desarrollado por Juan Pablo para la materia Big Data - 2025
+        Desarrollado por Juan Pablo - 2025
     </footer>
 
     <script>
-        // Configuración Global de gráficas para que se vean "Dark Mode"
+        // Configuración Global Dark Mode
         Chart.defaults.color = '#94a3b8';
         Chart.defaults.borderColor = '#334155';
         
-        function crearGrafica(id, tipo, labels, datos, label, colores) {
-            new Chart(document.getElementById(id), {
-                type: tipo,
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: label,
-                        data: datos,
-                        backgroundColor: colores,
-                        borderColor: tipo === 'line' ? '#38bdf8' : null,
-                        borderWidth: 2,
-                        borderRadius: 5,
-                        tension: 0.4 // Hace las líneas curvas y suaves
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom' }
-                    }
-                }
-            });
-        }
+        // Función para formatear minutos a segundos/minutos legibles
+        const fmt = (n) => n ? n.toFixed(1) + ' min' : 'N/A';
 
         async function cargarDatos() {
             try {
-                // 1. Usuarios (Donut chart se ve más moderno)
+                // --- 1. USUARIOS ---
+                // Requisito: Mostrar usertype, total y DURACIÓN PROMEDIO
                 const res1 = await fetch('/api/users');
                 const data1 = await res1.json();
-                crearGrafica('chartUsers', 'doughnut', 
-                    data1.map(d => d._id), data1.map(d => d.total), 
-                    'Usuarios', ['#38bdf8', '#818cf8']); // Azules neón
+                
+                new Chart(document.getElementById('chartUsers'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: data1.map(d => d._id),
+                        datasets: [{
+                            data: data1.map(d => d.total),
+                            backgroundColor: ['#38bdf8', '#818cf8'],
+                            // Datos ocultos para el tooltip
+                            avgs: data1.map(d => d.avgDuration) 
+                        }]
+                    },
+                    options: {
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        let val = ctx.raw;
+                                        let avg = fmt(ctx.dataset.avgs[ctx.dataIndex]);
+                                        return ` ${ctx.label}: ${val} viajes (Promedio: ${avg})`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
 
-                // 2. Horas
+                // --- 2. HORAS ---
+                // Requisito: Hora, total y PROMEDIO DE DURACIÓN
                 const res2 = await fetch('/api/hours');
                 const data2 = await res2.json();
-                crearGrafica('chartHours', 'bar', 
-                    data2.map(d => d._id + ":00"), data2.map(d => d.total), 
-                    'Viajes', '#2dd4bf'); // Verde agua
 
-                // 3. Estaciones (Horizontal bar es mejor para leer nombres largos)
+                new Chart(document.getElementById('chartHours'), {
+                    type: 'bar',
+                    data: {
+                        labels: data2.map(d => d._id + ":00"),
+                        datasets: [{
+                            label: 'Viajes',
+                            data: data2.map(d => d.total),
+                            backgroundColor: '#2dd4bf',
+                            avgs: data2.map(d => d.avgDuration) // Dato oculto
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        let avg = fmt(ctx.dataset.avgs[ctx.dataIndex]);
+                                        return `Viajes: ${ctx.raw} | Duración Prom: ${avg}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // --- 4. ESTACIONES ---
+                // Requisito: ID, Nombre, DURACIÓN PROMEDIO y Total
                 const res3 = await fetch('/api/stations?limit=10');
                 const data3 = await res3.json();
+
                 new Chart(document.getElementById('chartStations'), {
                     type: 'bar',
                     data: {
@@ -153,26 +187,83 @@
                         datasets: [{
                             label: 'Salidas',
                             data: data3.map(d => d.total),
-                            backgroundColor: '#fbbf24', // Amarillo
+                            backgroundColor: '#fbbf24',
+                            // Datos ocultos requeridos
+                            ids: data3.map(d => d._id),
+                            avgs: data3.map(d => d.avgDuration)
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // Horizontal
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    title: (items) => items[0].label, // Nombre estación
+                                    label: function(ctx) {
+                                        let id = ctx.dataset.ids[ctx.dataIndex];
+                                        let avg = fmt(ctx.dataset.avgs[ctx.dataIndex]);
+                                        // Aquí mostramos TODO lo que pide el PDF
+                                        return [` Total: ${ctx.raw}`, ` ID Estación: ${id}`, ` Duración Prom: ${avg}`];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // --- 5. PICOS (DÍA + HORA) --- NUEVO REQUISITO
+                // Requisito: Qué hora y qué día hay mayor cantidad
+                // Mapeamos números de día a nombres
+                const dias = ["", "Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+                
+                const res5 = await fetch('/api/peaks'); 
+                const data5 = await res5.json();
+                const topPeaks = data5.slice(0, 12); // Top 12 momentos más ocupados
+
+                new Chart(document.getElementById('chartPeaks'), {
+                    type: 'bar',
+                    data: {
+                        // Creamos etiqueta combinada: "Miércoles 17:00"
+                        labels: topPeaks.map(d => `${dias[d._id.dia]} ${d._id.hora}:00`),
+                        datasets: [{
+                            label: 'Viajes en Hora Pico',
+                            data: topPeaks.map(d => d.total),
+                            backgroundColor: '#f87171',
                             borderRadius: 4
                         }]
                     },
                     options: {
-                        indexAxis: 'y', // Barras horizontales
-                        responsive: true,
-                        maintainAspectRatio: false
+                        maintainAspectRatio: false,
+                        scales: { x: { ticks: { maxRotation: 45, minRotation: 45 } } }
                     }
                 });
 
-                // 4. Días
+                // --- 3. DÍAS (Tendencia) ---
                 const res4 = await fetch('/api/days');
                 const data4 = await res4.json();
-                crearGrafica('chartDays', 'line', 
-                    data4.slice(0, 20).map(d => d._id), data4.slice(0, 20).map(d => d.total), 
-                    'Tendencia', '#f472b6'); // Rosa
+                // Mostramos ultimos 30 registros para que se vea bien la linea
+                const data4Slice = data4.slice(0, 30);
 
-            } catch (error) { console.error(error); }
+                new Chart(document.getElementById('chartDays'), {
+                    type: 'line',
+                    data: {
+                        labels: data4Slice.map(d => d._id),
+                        datasets: [{
+                            label: 'Tendencia Diaria',
+                            data: data4Slice.map(d => d.total),
+                            borderColor: '#c084fc',
+                            backgroundColor: 'rgba(192, 132, 252, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: { maintainAspectRatio: false }
+                });
+
+            } catch (error) { console.error("Error cargando dashboard:", error); }
         }
+
         cargarDatos();
     </script>
 </body>
